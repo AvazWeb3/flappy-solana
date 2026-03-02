@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Flappy Solana Stable</title>
+<title>Flappy Solana</title>
 <style>
 body {
   margin: 0;
@@ -26,33 +26,60 @@ const ctx = canvas.getContext("2d");
 canvas.width = 400;
 canvas.height = 600;
 
-let y = 300;
-let velocity = 0;
-let gravity = 0.6;
-let lift = -10;
+let coin;
+let pipes;
+let score;
+let frame;
+let gameOver;
 
-let pipes = [];
-let score = 0;
-let gameOver = false;
+function initGame() {
+  coin = {
+    x: 80,
+    y: 300,
+    r: 30,
+    velocity: 0
+  };
 
+  pipes = [];
+  score = 0;
+  frame = 0;
+  gameOver = false;
+}
+
+initGame();
+
+/* ===== Controls ===== */
 function jump() {
-  if (!gameOver) velocity = lift;
+  if (gameOver) {
+    initGame();
+    return;
+  }
+  coin.velocity = -10;
 }
 
 document.addEventListener("keydown", jump);
 document.addEventListener("click", jump);
 
-function drawCoin(x, y, r) {
-  const g = ctx.createRadialGradient(x-10,y-10,5,x,y,r);
+/* ===== Draw Coin ===== */
+function drawCoin() {
+  const r = coin.r;
+
+  const g = ctx.createRadialGradient(
+    coin.x-10, coin.y-10, 5,
+    coin.x, coin.y, r
+  );
   g.addColorStop(0,"#333");
   g.addColorStop(1,"#000");
 
   ctx.beginPath();
-  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.arc(coin.x, coin.y, r, 0, Math.PI*2);
   ctx.fillStyle = g;
   ctx.fill();
 
-  const grad = ctx.createLinearGradient(x-r,y-r,x+r,y+r);
+  const grad = ctx.createLinearGradient(
+    coin.x-r, coin.y-r,
+    coin.x+r, coin.y+r
+  );
   grad.addColorStop(0,"#00ffa3");
   grad.addColorStop(1,"#9945ff");
 
@@ -60,78 +87,104 @@ function drawCoin(x, y, r) {
 
   for(let i=-1;i<=1;i++){
     ctx.save();
-    ctx.translate(x,y+i*r*0.4);
+    ctx.translate(coin.x, coin.y+i*r*0.4);
     ctx.rotate(-0.25);
-    ctx.fillRect(-r,-r*0.15,r*2,r*0.3);
+    ctx.fillRect(-r, -r*0.15, r*2, r*0.3);
     ctx.restore();
   }
 }
 
-function createPipe(){
-  let top = Math.random()*250+50;
+/* ===== Create Pipes (как Flappy) ===== */
+function createPipe() {
+  const gap = 170;
+  const topHeight = Math.random() * 250 + 50;
+
   pipes.push({
-    x:400,
-    top:top,
-    bottom:600-top-160
+    x: canvas.width,
+    top: topHeight,
+    bottom: canvas.height - topHeight - gap,
+    passed: false
   });
 }
 
-function update(){
-  if(gameOver) return;
+/* ===== Update ===== */
+function update() {
+  if (gameOver) return;
 
-  velocity += gravity;
-  y += velocity;
+  // Gravity
+  coin.velocity += 0.6;
+  coin.y += coin.velocity;
 
-  if(y>600 || y<0){
+  // Ceiling / Floor
+  if (coin.y - coin.r < 0 || coin.y + coin.r > canvas.height) {
     gameOver = true;
   }
 
-  pipes.forEach(p=>{
-    p.x -= 2;
+  // Pipes movement
+  pipes.forEach(pipe => {
+    pipe.x -= 2;
 
-    if(
-      80+30>p.x &&
-      80-30<p.x+60 &&
-      (y-30<p.top || y+30>600-p.bottom)
-    ){
+    // Collision
+    if (
+      coin.x + coin.r > pipe.x &&
+      coin.x - coin.r < pipe.x + 60 &&
+      (coin.y - coin.r < pipe.top ||
+       coin.y + coin.r > canvas.height - pipe.bottom)
+    ) {
       gameOver = true;
     }
 
-    if(p.x+60===80){
+    // Score
+    if (!pipe.passed && pipe.x + 60 < coin.x) {
       score++;
+      pipe.passed = true;
     }
   });
 
-  pipes = pipes.filter(p=>p.x+60>0);
+  pipes = pipes.filter(pipe => pipe.x + 60 > 0);
 
-  if(Math.random()<0.02){
+  // Spawn every 90 frames
+  if (frame % 90 === 0) {
     createPipe();
   }
+
+  frame++;
 }
 
-function draw(){
-  ctx.clearRect(0,0,400,600);
+/* ===== Draw ===== */
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  drawCoin(80,y,30);
+  drawCoin();
 
-  pipes.forEach(p=>{
-    ctx.fillStyle="#ff3b3b";
-    ctx.fillRect(p.x,0,60,p.top);
-    ctx.fillRect(p.x,600-p.bottom,60,p.bottom);
+  pipes.forEach(pipe => {
+    ctx.fillStyle = "#ff3b3b";
+    ctx.fillRect(pipe.x, 0, 60, pipe.top);
+    ctx.fillRect(
+      pipe.x,
+      canvas.height - pipe.bottom,
+      60,
+      pipe.bottom
+    );
   });
 
   ctx.fillStyle="white";
-  ctx.font="20px Arial";
-  ctx.fillText("Score: "+score,20,30);
+  ctx.font="24px Arial";
+  ctx.fillText("Score: "+score,20,40);
 
-  if(gameOver){
+  if (gameOver) {
     ctx.fillStyle="red";
     ctx.font="40px Arial";
-    ctx.fillText("LIQUIDATED",70,300);
+    ctx.fillText("LIQUIDATED",70,280);
+
+    ctx.fillStyle="white";
+    ctx.font="18px Arial";
+    ctx.fillText("Click to Restart",130,320);
   }
 }
 
-function loop(){
+/* ===== Game Loop ===== */
+function loop() {
   update();
   draw();
   requestAnimationFrame(loop);
