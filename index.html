@@ -26,6 +26,38 @@ const ctx = canvas.getContext("2d");
 canvas.width = 400;
 canvas.height = 600;
 
+/* ===== Audio (safe for GitHub) ===== */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playJumpSound() {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "square";
+  osc.frequency.value = 500;
+  gain.gain.value = 0.1;
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.08);
+}
+
+function playHitSound() {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.value = 120;
+  gain.gain.value = 0.2;
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.2);
+}
+
+/* ===== Game State ===== */
 let coin;
 let pipes;
 let score;
@@ -36,7 +68,7 @@ function initGame() {
   coin = {
     x: 80,
     y: 300,
-    r: 30,
+    r: 20, // МОНЕТА МЕНЬШЕ
     velocity: 0
   };
 
@@ -54,7 +86,8 @@ function jump() {
     initGame();
     return;
   }
-  coin.velocity = -10;
+  coin.velocity = -9;
+  playJumpSound();
 }
 
 document.addEventListener("keydown", jump);
@@ -65,10 +98,10 @@ function drawCoin() {
   const r = coin.r;
 
   const g = ctx.createRadialGradient(
-    coin.x-10, coin.y-10, 5,
+    coin.x-6, coin.y-6, 3,
     coin.x, coin.y, r
   );
-  g.addColorStop(0,"#333");
+  g.addColorStop(0,"#444");
   g.addColorStop(1,"#000");
 
   ctx.beginPath();
@@ -94,7 +127,7 @@ function drawCoin() {
   }
 }
 
-/* ===== Create Pipes (как Flappy) ===== */
+/* ===== Pipes ===== */
 function createPipe() {
   const gap = 170;
   const topHeight = Math.random() * 250 + 50;
@@ -107,24 +140,20 @@ function createPipe() {
   });
 }
 
-/* ===== Update ===== */
 function update() {
   if (gameOver) return;
 
-  // Gravity
   coin.velocity += 0.6;
   coin.y += coin.velocity;
 
-  // Ceiling / Floor
   if (coin.y - coin.r < 0 || coin.y + coin.r > canvas.height) {
     gameOver = true;
+    playHitSound();
   }
 
-  // Pipes movement
   pipes.forEach(pipe => {
     pipe.x -= 2;
 
-    // Collision
     if (
       coin.x + coin.r > pipe.x &&
       coin.x - coin.r < pipe.x + 60 &&
@@ -132,9 +161,9 @@ function update() {
        coin.y + coin.r > canvas.height - pipe.bottom)
     ) {
       gameOver = true;
+      playHitSound();
     }
 
-    // Score
     if (!pipe.passed && pipe.x + 60 < coin.x) {
       score++;
       pipe.passed = true;
@@ -143,7 +172,6 @@ function update() {
 
   pipes = pipes.filter(pipe => pipe.x + 60 > 0);
 
-  // Spawn every 90 frames
   if (frame % 90 === 0) {
     createPipe();
   }
@@ -183,7 +211,6 @@ function draw() {
   }
 }
 
-/* ===== Game Loop ===== */
 function loop() {
   update();
   draw();
