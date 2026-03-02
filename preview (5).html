@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Flappy Solana</title>
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0f172a, #020617);
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+canvas {
+  display: block;
+  margin: 0 auto;
+}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = 400;
+canvas.height = 600;
+
+/* ========== AUDIO ========== */
+const jumpSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+const hitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+
+/* ========== SOLANA LOGO IMAGE ========== */
+const solLogo = new Image();
+solLogo.src = "https://cryptologos.cc/logos/solana-sol-logo.png";
+
+/* ========== GAME STATE ========== */
+let coin = {
+  x: 80,
+  y: 300,
+  size: 40,
+  gravity: 0.6,
+  lift: -10,
+  velocity: 0
+};
+
+let candles = [];
+let candleWidth = 60;
+let gap = 170;
+let frame = 0;
+let score = 0;
+let gameOver = false;
+
+/* ========== CONTROLS ========== */
+function jump() {
+  if (!gameOver) {
+    coin.velocity = coin.lift;
+    jumpSound.currentTime = 0;
+    jumpSound.play();
+  }
+}
+
+document.addEventListener("keydown", () => {
+  if (gameOver) restartGame();
+  else jump();
+});
+
+document.addEventListener("click", () => {
+  if (gameOver) restartGame();
+  else jump();
+});
+
+/* ========== DRAW SOLANA ========== */
+function drawCoin() {
+  ctx.drawImage(
+    solLogo,
+    coin.x - coin.size/2,
+    coin.y - coin.size/2,
+    coin.size,
+    coin.size
+  );
+}
+
+/* ========== UPDATE COIN ========== */
+function updateCoin() {
+  coin.velocity += coin.gravity;
+  coin.y += coin.velocity;
+
+  if (coin.y + coin.size/2 > canvas.height || coin.y - coin.size/2 < 0) {
+    triggerGameOver();
+  }
+}
+
+/* ========== CREATE CANDLE ========== */
+function createCandle() {
+  let topHeight = Math.random() * 250 + 50;
+  candles.push({
+    x: canvas.width,
+    top: topHeight,
+    bottom: canvas.height - topHeight - gap
+  });
+}
+
+/* ========== DRAW CANDLES ========== */
+function drawCandles() {
+  candles.forEach(c => {
+    ctx.fillStyle = "#ff3b3b";
+
+    // Body
+    ctx.fillRect(c.x, 0, candleWidth, c.top);
+    ctx.fillRect(c.x, canvas.height - c.bottom, candleWidth, c.bottom);
+
+    // Wick
+    ctx.fillStyle = "#ff8080";
+    ctx.fillRect(c.x + candleWidth/2 - 2, c.top - 25, 4, 25);
+    ctx.fillRect(
+      c.x + candleWidth/2 - 2,
+      canvas.height - c.bottom,
+      4,
+      25
+    );
+  });
+}
+
+/* ========== UPDATE CANDLES ========== */
+function updateCandles() {
+  candles.forEach(c => {
+    c.x -= 2;
+
+    if (
+      coin.x + coin.size/2 > c.x &&
+      coin.x - coin.size/2 < c.x + candleWidth &&
+      (coin.y - coin.size/2 < c.top ||
+       coin.y + coin.size/2 > canvas.height - c.bottom)
+    ) {
+      triggerGameOver();
+    }
+
+    if (c.x + candleWidth === coin.x) {
+      score++;
+    }
+  });
+
+  candles = candles.filter(c => c.x + candleWidth > 0);
+
+  if (frame % 90 === 0) createCandle();
+}
+
+/* ========== SCORE ========== */
+function drawScore() {
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "26px Arial";
+  ctx.fillText("Score: " + score, 20, 40);
+}
+
+/* ========== GAME OVER ========== */
+function triggerGameOver() {
+  if (!gameOver) {
+    gameOver = true;
+    hitSound.play();
+  }
+}
+
+function drawGameOver() {
+  ctx.fillStyle = "#ff3b3b";
+  ctx.font = "42px Arial";
+  ctx.fillText("LIQUIDATED", 70, 280);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "18px Arial";
+  ctx.fillText("Click or Press Any Key to Restart", 55, 320);
+}
+
+/* ========== RESTART ========== */
+function restartGame() {
+  coin.y = 300;
+  coin.velocity = 0;
+  candles = [];
+  score = 0;
+  gameOver = false;
+  frame = 0;
+}
+
+/* ========== LOOP ========== */
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!gameOver) {
+    updateCoin();
+    updateCandles();
+  }
+
+  drawCoin();
+  drawCandles();
+  drawScore();
+
+  if (gameOver) drawGameOver();
+
+  frame++;
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
