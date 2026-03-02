@@ -2,16 +2,13 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Flappy Solana</title>
+<title>Flappy Solana Stable</title>
 <style>
 body {
   margin: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #0f172a, #020617);
-  font-family: Arial, sans-serif;
-  text-align: center;
+  background: radial-gradient(circle at top, #111827, #020617);
 }
-
 canvas {
   display: block;
   margin: 0 auto;
@@ -29,19 +26,10 @@ const ctx = canvas.getContext("2d");
 canvas.width = 400;
 canvas.height = 600;
 
-/* ========== AUDIO ========== */
-const jumpSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-const hitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
-
-/* ========== SOLANA LOGO IMAGE ========== */
-const solLogo = new Image();
-solLogo.src = "https://cryptologos.cc/logos/solana-sol-logo.png";
-
-/* ========== GAME STATE ========== */
 let coin = {
   x: 80,
   y: 300,
-  size: 40,
+  r: 30,
   gravity: 0.6,
   lift: -10,
   velocity: 0
@@ -54,13 +42,9 @@ let frame = 0;
 let score = 0;
 let gameOver = false;
 
-/* ========== CONTROLS ========== */
+/* ===== Controls ===== */
 function jump() {
-  if (!gameOver) {
-    coin.velocity = coin.lift;
-    jumpSound.currentTime = 0;
-    jumpSound.play();
-  }
+  if (!gameOver) coin.velocity = coin.lift;
 }
 
 document.addEventListener("keydown", () => {
@@ -73,28 +57,60 @@ document.addEventListener("click", () => {
   else jump();
 });
 
-/* ========== DRAW SOLANA ========== */
+/* ===== Draw Coin (dark coin + Solana stripes) ===== */
 function drawCoin() {
-  ctx.drawImage(
-    solLogo,
-    coin.x - coin.size/2,
-    coin.y - coin.size/2,
-    coin.size,
-    coin.size
+  const r = coin.r;
+
+  const gradient = ctx.createRadialGradient(
+    coin.x - r/3,
+    coin.y - r/3,
+    r/5,
+    coin.x,
+    coin.y,
+    r
   );
+  gradient.addColorStop(0, "#2a2a2a");
+  gradient.addColorStop(1, "#000000");
+
+  ctx.beginPath();
+  ctx.arc(coin.x, coin.y, r, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  const stripeGradient = ctx.createLinearGradient(
+    coin.x - r,
+    coin.y - r,
+    coin.x + r,
+    coin.y + r
+  );
+  stripeGradient.addColorStop(0, "#00ffa3");
+  stripeGradient.addColorStop(1, "#9945ff");
+
+  ctx.fillStyle = stripeGradient;
+
+  for (let i = -1; i <= 1; i++) {
+    ctx.save();
+    ctx.translate(coin.x, coin.y + i * r * 0.4);
+    ctx.rotate(-0.25);
+    ctx.fillRect(-r, -r * 0.15, r * 2, r * 0.3);
+    ctx.restore();
+  }
 }
 
-/* ========== UPDATE COIN ========== */
+/* ===== Update Coin ===== */
 function updateCoin() {
   coin.velocity += coin.gravity;
   coin.y += coin.velocity;
 
-  if (coin.y + coin.size/2 > canvas.height || coin.y - coin.size/2 < 0) {
-    triggerGameOver();
+  if (
+    coin.y + coin.r > canvas.height ||
+    coin.y - coin.r < 0
+  ) {
+    gameOver = true;
   }
 }
 
-/* ========== CREATE CANDLE ========== */
+/* ===== Candles ===== */
 function createCandle() {
   let topHeight = Math.random() * 250 + 50;
   candles.push({
@@ -104,44 +120,42 @@ function createCandle() {
   });
 }
 
-/* ========== DRAW CANDLES ========== */
 function drawCandles() {
   candles.forEach(c => {
     ctx.fillStyle = "#ff3b3b";
-
-    // Body
     ctx.fillRect(c.x, 0, candleWidth, c.top);
-    ctx.fillRect(c.x, canvas.height - c.bottom, candleWidth, c.bottom);
+    ctx.fillRect(
+      c.x,
+      canvas.height - c.bottom,
+      candleWidth,
+      c.bottom
+    );
 
-    // Wick
-    ctx.fillStyle = "#ff8080";
-    ctx.fillRect(c.x + candleWidth/2 - 2, c.top - 25, 4, 25);
+    ctx.fillStyle = "#ff8a8a";
+    ctx.fillRect(c.x + candleWidth/2 - 2, c.top - 20, 4, 20);
     ctx.fillRect(
       c.x + candleWidth/2 - 2,
       canvas.height - c.bottom,
       4,
-      25
+      20
     );
   });
 }
 
-/* ========== UPDATE CANDLES ========== */
 function updateCandles() {
   candles.forEach(c => {
     c.x -= 2;
 
     if (
-      coin.x + coin.size/2 > c.x &&
-      coin.x - coin.size/2 < c.x + candleWidth &&
-      (coin.y - coin.size/2 < c.top ||
-       coin.y + coin.size/2 > canvas.height - c.bottom)
+      coin.x + coin.r > c.x &&
+      coin.x - coin.r < c.x + candleWidth &&
+      (coin.y - coin.r < c.top ||
+       coin.y + coin.r > canvas.height - c.bottom)
     ) {
-      triggerGameOver();
+      gameOver = true;
     }
 
-    if (c.x + candleWidth === coin.x) {
-      score++;
-    }
+    if (c.x + candleWidth === coin.x) score++;
   });
 
   candles = candles.filter(c => c.x + candleWidth > 0);
@@ -149,32 +163,23 @@ function updateCandles() {
   if (frame % 90 === 0) createCandle();
 }
 
-/* ========== SCORE ========== */
+/* ===== Score ===== */
 function drawScore() {
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "26px Arial";
+  ctx.fillStyle = "white";
+  ctx.font = "24px Arial";
   ctx.fillText("Score: " + score, 20, 40);
-}
-
-/* ========== GAME OVER ========== */
-function triggerGameOver() {
-  if (!gameOver) {
-    gameOver = true;
-    hitSound.play();
-  }
 }
 
 function drawGameOver() {
   ctx.fillStyle = "#ff3b3b";
-  ctx.font = "42px Arial";
+  ctx.font = "40px Arial";
   ctx.fillText("LIQUIDATED", 70, 280);
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "white";
   ctx.font = "18px Arial";
-  ctx.fillText("Click or Press Any Key to Restart", 55, 320);
+  ctx.fillText("Click to restart", 130, 320);
 }
 
-/* ========== RESTART ========== */
 function restartGame() {
   coin.y = 300;
   coin.velocity = 0;
@@ -184,7 +189,7 @@ function restartGame() {
   frame = 0;
 }
 
-/* ========== LOOP ========== */
+/* ===== Loop ===== */
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
